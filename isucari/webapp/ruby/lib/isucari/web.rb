@@ -6,6 +6,8 @@ require 'mysql2-cs-bind'
 require 'bcrypt'
 require 'isucari/api'
 
+require 'logger'
+
 module Isucari
   class Web < Sinatra::Base
     DEFAULT_PAYMENT_SERVICE_URL = 'http://localhost:5555'
@@ -40,6 +42,8 @@ module Isucari
 
     BCRYPT_COST = 10
 
+    LOG_PATH = File.expand_path("../../log/#{Time.now.to_i}.log", __dir__)
+
     configure :development do
       require 'sinatra/reloader'
       register Sinatra::Reloader
@@ -68,6 +72,10 @@ module Isucari
 
       def api_client
         Thread.current[:api_client] ||= ::Isucari::API.new
+      end
+
+      def logger
+        Thread.current[:logger] ||= ::Logger.new(LOG_PATH)
       end
 
       def get_user
