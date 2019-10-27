@@ -1,0 +1,17 @@
+[Unit]
+Description = mgmt
+
+[Service]
+WorkingDirectory=/home/isucon/cap/current/mgmt
+EnvironmentFile=/home/isucon/env.sh
+
+ExecStart = /home/isucon/local/ruby/bin/bundle exec ruby mgmt.rb
+
+
+Restart   = always
+Type      = simple
+User      = isucon
+Group     = isucon
+
+[Install]
+WantedBy = multi-user.target
