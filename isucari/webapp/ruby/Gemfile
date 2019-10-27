@@ -8,4 +8,5 @@ gem 'bcrypt'
 
 group :development do
   gem 'sinatra-contrib'
+  gem 'stackprof'
 end
