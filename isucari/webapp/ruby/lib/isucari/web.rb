@@ -47,6 +47,12 @@ module Isucari
     configure :development do
       require 'sinatra/reloader'
       register Sinatra::Reloader
+      require 'stackprof'
+      use StackProf::Middleware, enabled: true,
+          path: STACKPROF_PATH,
+          mode: :cpu,
+          interval: 1000,
+          save_every: 5
     end
 
     set :add_charset, ['application/json']
