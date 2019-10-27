@@ -108,6 +108,9 @@ module Isucari
       else
         http.request(req)
       end
+    rescue => e
+      @logger.error(e)
+      raise
     end
   end
 end
