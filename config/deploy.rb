@@ -2,7 +2,8 @@
 lock "~> 3.11.2"
 
 set :application, "isucari"
-set :repo_url, "git@github.com/zuckeyM-17/isucon9q-r.git"
+set :repo_url, "git@github.com:zuckeyM-17/isucon9q-r.git"
+
 
 
 # Default branch is :master
