@@ -8,8 +8,10 @@ module Isucari
 
     ISUCARI_API_TOKEN = 'Bearer 75ugk2m37a750fwir5xr-22l6h4wmue1bwrubzwd0'
 
-    def initialize
+    def initialize(logger:, debug:)
       @user_agent = 'isucon9-qualify-webapp'
+      @logger = logger
+      @debug = debug
     end
 
     def payment_token(payment_url, param)
@@ -22,7 +24,7 @@ module Isucari
 
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = uri.scheme == 'https'
-      res = http.start { http.request(req) }
+      res = start_with_logging(http, req, __method__)
 
       if res.code != '200'
         raise Error, "status code #{res.code}; body #{res.body}"
@@ -42,7 +44,7 @@ module Isucari
 
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = uri.scheme == 'https'
-      res = http.start { http.request(req) }
+      res = start_with_logging(http, req, __method__)
 
       if res.code != '200'
         raise Error, "status code #{res.code}; body #{res.body}"
@@ -62,7 +64,7 @@ module Isucari
 
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = uri.scheme == 'https'
-      res = http.start { http.request(req) }
+      res = start_with_logging(http, req, __method__)
 
       if res.code != '200'
         raise Error, "status code #{res.code}; body #{res.body}"
@@ -82,13 +84,30 @@ module Isucari
 
       http = Net::HTTP.new(uri.host, uri.port)
       http.use_ssl = uri.scheme == 'https'
-      res = http.start { http.request(req) }
+      res = start_with_logging(http, req, __method__)
 
       if res.code != '200'
         raise Error, "status code #{res.code}; body #{res.body}"
       end
 
       JSON.parse(res.body)
+    end
+
+    private
+
+    def start_with_logging(http, req, name)
+      if @debug
+        http.start do
+          beg = Time.now.to_f
+          res = http.request(req)
+          now = Time.now.to_f
+          ms = (now - beg) * 1000
+          @logger.info("#{name} http took #{ms.to_i}ms")
+          res
+        end
+      else
+        http.request(req)
+      end
     end
   end
 end

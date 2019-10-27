@@ -71,7 +71,7 @@ module Isucari
       end
 
       def api_client
-        Thread.current[:api_client] ||= ::Isucari::API.new
+        Thread.current[:api_client] ||= ::Isucari::API.new(logger: logger, debug: ENV['RACK_ENV'] != 'production')
       end
 
       def logger
