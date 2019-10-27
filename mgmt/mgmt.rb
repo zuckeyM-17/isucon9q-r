@@ -16,6 +16,7 @@ get '/mgmt/nginx_log' do
 end
 
 post '/mgmt/nginx_log/rotate' do
+  system("sudo systemctl stop nginx") or halt 500
   system("sudo rm -rf #{NGINX_ACCESS_LOG}") or halt 500
   system("sudo systemctl restart nginx") or halt 500
 

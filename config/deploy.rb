@@ -26,7 +26,7 @@ set :deploy_to, "/home/isucon/cap"
 # append :linked_files, "config/database.yml"
 
 # Default value for linked_dirs is []
-append :linked_dirs, "isucari/webapp/ruby/.bundle", "isucari/webapp/ruby/bendor", "isucari/webapp/ruby/log"
+append :linked_dirs, "isucari/webapp/ruby/.bundle", "isucari/webapp/ruby/vendor", "isucari/webapp/ruby/log", "mgmt/.bundle", "mgmt/vendor"
 
 # Default value for default_env is {}
 # set :default_env, { path: "/opt/ruby/bin:$PATH" }
