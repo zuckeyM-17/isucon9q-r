@@ -43,6 +43,7 @@ module Isucari
     BCRYPT_COST = 10
 
     LOG_PATH = File.expand_path("../../log/#{Time.now.to_i}.log", __dir__)
+    STACKPROF_PATH = "tmp/stackprof-#{Time.now.to_i}/"
 
     configure :development do
       require 'sinatra/reloader'
