@@ -269,7 +269,7 @@ module Isucari
 
       response = {
         # キャンペーン実施時には還元率の設定を返す。詳しくはマニュアルを参照のこと。
-        'campaign' => 0,
+        'campaign' => 4,
         # 実装言語を返す
         'language' => 'ruby',
       }
