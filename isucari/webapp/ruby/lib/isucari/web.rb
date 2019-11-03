@@ -45,16 +45,6 @@ module Isucari
     LOG_PATH = File.expand_path("../../log/#{Time.now.to_i}.log", __dir__)
     STACKPROF_PATH = "tmp/stackprof-#{Time.now.to_i}/"
 
-    class << self
-      def configs
-        @configs ||= {}
-      end
-
-      def reset
-        @configs = {}
-      end
-    end
-
     configure :development do
       require 'sinatra/reloader'
       register Sinatra::Reloader
@@ -153,12 +143,20 @@ module Isucari
         }
       end
 
+      def get_config_by_name(name)
+        config = db.xquery('SELECT * FROM `configs` WHERE `name` = ?', name).first
+
+        return if config.nil?
+
+        config['val']
+      end
+
       def get_payment_service_url
-        Isucari::Web.configs['payment_service_url'] || DEFAULT_PAYMENT_SERVICE_URL
+        get_config_by_name('payment_service_url') || DEFAULT_PAYMENT_SERVICE_URL
       end
 
       def get_shipment_service_url
-        Isucari::Web.configs['shipment_service_url'] || DEFAULT_SHIPMENT_SERVICE_URL
+        get_config_by_name('shipment_service_url') || DEFAULT_SHIPMENT_SERVICE_URL
       end
 
       def get_image_url(image_name)
@@ -228,14 +226,15 @@ module Isucari
       logger.info("start /initialize")
 
       Isucari::API.reset_cache
-      Isucari::Web.reset
 
       unless system "#{settings.root}/../sql/init.sh"
         halt_with_error 500, 'exec init.sh error'
       end
 
       ['payment_service_url', 'shipment_service_url'].each do |name|
-        Isucari::Web.configs[name] = body_params[name]
+        value = body_params[name]
+
+        db.xquery('INSERT INTO `configs` (name, val) VALUES (?, ?) ON DUPLICATE KEY UPDATE `val` = VALUES(`val`)', name, value)
       end
 
       content_type :json
