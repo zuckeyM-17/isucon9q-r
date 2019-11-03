@@ -154,11 +154,11 @@ module Isucari
       end
 
       def get_payment_service_url
-        get_config_by_name('payment_service_url') || DEFAULT_PAYMENT_SERVICE_URL
+        @payment_service_url ||= get_config_by_name('payment_service_url') || DEFAULT_PAYMENT_SERVICE_URL
       end
 
       def get_shipment_service_url
-        get_config_by_name('shipment_service_url') || DEFAULT_SHIPMENT_SERVICE_URL
+        @shipment_service_url ||= get_config_by_name('shipment_service_url') || DEFAULT_SHIPMENT_SERVICE_URL
       end
 
       def get_image_url(image_name)
@@ -252,6 +252,8 @@ module Isucari
       logger.info("start /initialize")
 
       Isucari::API.reset_cache
+      @payment_service_url = nil
+      @shipment_service_url = nil
 
       unless system "#{settings.root}/../sql/init.sh"
         halt_with_error 500, 'exec init.sh error'
