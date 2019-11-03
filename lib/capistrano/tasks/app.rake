@@ -20,6 +20,7 @@ namespace :app do
   desc "create a symlink to upload "
   task :link_upload do
     on roles(:app) do |host|
+      execute :mkdir, :"-p", "/home/isucon/upload"
       execute :ln, :"-s", "/home/isucon/upload", "isucari/webapp/public/upload"
     end
   end
