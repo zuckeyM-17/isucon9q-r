@@ -297,7 +297,20 @@ module Isucari
       items = if item_id > 0 && created_at > 0
         # paging
         begin
-          db.xquery("SELECT * FROM `items` WHERE (`seller_id` = ? OR `buyer_id` = ?) AND `status` IN (?, ?, ?, ?, ?) AND (`created_at` < ?  OR (`created_at` <= ? AND `id` < ?)) ORDER BY `created_at` DESC, `id` DESC LIMIT #{TRANSACTIONS_PER_PAGE + 1}", user['id'], user['id'], ITEM_STATUS_ON_SALE, ITEM_STATUS_TRADING, ITEM_STATUS_SOLD_OUT, ITEM_STATUS_CANCEL, ITEM_STATUS_STOP, Time.at(created_at), Time.at(created_at), item_id)
+          db.xquery(<<-SQL, user['id'], user['id'], ITEM_STATUS_ON_SALE, ITEM_STATUS_TRADING, ITEM_STATUS_SOLD_OUT, ITEM_STATUS_CANCEL, ITEM_STATUS_STOP, Time.at(created_at), Time.at(created_at), item_id)
+          SELECT
+            *
+          FROM
+            `items`
+          WHERE
+            (`seller_id` = ? OR `buyer_id` = ?)
+            AND `status` IN (?, ?, ?, ?, ?)
+            AND (`created_at` < ?  OR (`created_at` <= ? AND `id` < ?))
+          ORDER BY
+            `created_at` DESC,
+            `id` DESC
+          LIMIT #{TRANSACTIONS_PER_PAGE + 1}
+          SQL
         rescue => e
           logger.error(e)
           db.query('ROLLBACK')
@@ -306,7 +319,19 @@ module Isucari
       else
         # 1st page
         begin
-          db.xquery("SELECT * FROM `items` WHERE (`seller_id` = ? OR `buyer_id` = ?) AND `status` IN (?, ?, ?, ?, ?) ORDER BY `created_at` DESC, `id` DESC LIMIT #{TRANSACTIONS_PER_PAGE + 1}", user['id'], user['id'], ITEM_STATUS_ON_SALE, ITEM_STATUS_TRADING, ITEM_STATUS_SOLD_OUT, ITEM_STATUS_CANCEL, ITEM_STATUS_STOP)
+          db.xquery(<<-SQL, user['id'], user['id'], ITEM_STATUS_ON_SALE, ITEM_STATUS_TRADING, ITEM_STATUS_SOLD_OUT, ITEM_STATUS_CANCEL, ITEM_STATUS_STOP)
+          SELECT
+            *
+          FROM
+            `items`
+          WHERE
+            (`seller_id` = ? OR `buyer_id` = ?)
+            AND `status` IN (?, ?, ?, ?, ?)
+          ORDER BY
+            `created_at` DESC,
+            `id` DESC
+          LIMIT #{TRANSACTIONS_PER_PAGE + 1}
+          SQL
         rescue => e
           logger.error(e)
           db.query('ROLLBACK')
