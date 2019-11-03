@@ -1,0 +1,15 @@
+#! /usr/bin/env ruby
+
+filepath = ARGV.first || 'log/nginx.log'
+s = File.read(filepath)
+logs = s.split("\n").map { |line| line.split("\t").map { |e| e.split(?:, 2) }.to_h }
+
+File.open(filepath + '.normalized', 'w') do |f|
+  logs.each do |log|
+    next unless log.key?('uri')
+    log['uri'].gsub!(%r{/\d+(\.|/)}, '/:number\1')
+    log['uri'].gsub!(%r{/upload/.*\.jpg}, '/upload/:name.jpg')
+    f.puts log.map { |(k, v)| [k, v].join(":") }.join("\t")
+  end
+end
+
