@@ -9,7 +9,7 @@ namespace :app do
 
   desc "copy initial.sql"
   task :copy_file do
-    on roles(:app) do |host|
+    on roles(:db) do |host|
       src = "/home/isucon/initial.sql"
       dst = "isucari/webapp/sql/initial.sql"
       execute :rm, '-rf', dst
