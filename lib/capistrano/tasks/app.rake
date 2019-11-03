@@ -12,9 +12,8 @@ namespace :app do
     on roles(:app) do |host|
       src = "/home/isucon/initial.sql"
       dst = "isucari/webapp/sql/initial.sql"
-      unless File.exists?(dst)
-        execute :cp, src, dst
-      end
+      execute :rm, '-rf', dst
+      execute :cp, src, dst
     end
   end
 
