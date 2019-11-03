@@ -153,6 +153,53 @@ module Isucari
       def halt_with_error(status = 500, error = 'unknown')
         halt status, { 'error' => error }.to_json
       end
+
+      def get_items(user, item_id = 0, created_at = 0)
+        if item_id > 0 && created_at > 0
+          # paging
+          begin
+            db.xquery(<<-SQL, user['id'], user['id'], ITEM_STATUS_ON_SALE, ITEM_STATUS_TRADING, ITEM_STATUS_SOLD_OUT, ITEM_STATUS_CANCEL, ITEM_STATUS_STOP, Time.at(created_at), Time.at(created_at), item_id)
+          SELECT
+            *
+          FROM
+            `items`
+          WHERE
+            (`seller_id` = ? OR `buyer_id` = ?)
+            AND `status` IN (?, ?, ?, ?, ?)
+            AND (`created_at` < ?  OR (`created_at` <= ? AND `id` < ?))
+          ORDER BY
+            `created_at` DESC,
+            `id` DESC
+          LIMIT #{TRANSACTIONS_PER_PAGE + 1}
+            SQL
+          rescue => e
+            logger.error(e)
+            db.query('ROLLBACK')
+            halt_with_error 500, 'db error'
+          end
+        else
+          # 1st page
+          begin
+            db.xquery(<<-SQL, user['id'], user['id'], ITEM_STATUS_ON_SALE, ITEM_STATUS_TRADING, ITEM_STATUS_SOLD_OUT, ITEM_STATUS_CANCEL, ITEM_STATUS_STOP)
+          SELECT
+            *
+          FROM
+            `items`
+          WHERE
+            (`seller_id` = ? OR `buyer_id` = ?)
+            AND `status` IN (?, ?, ?, ?, ?)
+          ORDER BY
+            `created_at` DESC,
+            `id` DESC
+          LIMIT #{TRANSACTIONS_PER_PAGE + 1}
+            SQL
+          rescue => e
+            logger.error(e)
+            db.query('ROLLBACK')
+            halt_with_error 500, 'db error'
+          end
+        end
+      end
     end
 
     # API
@@ -289,55 +336,11 @@ module Isucari
     # getTransactions
     get '/users/transactions.json' do
       user = get_user
-
       item_id = params['item_id'].to_i
       created_at = params['created_at'].to_i
 
       db.query('BEGIN')
-      items = if item_id > 0 && created_at > 0
-        # paging
-        begin
-          db.xquery(<<-SQL, user['id'], user['id'], ITEM_STATUS_ON_SALE, ITEM_STATUS_TRADING, ITEM_STATUS_SOLD_OUT, ITEM_STATUS_CANCEL, ITEM_STATUS_STOP, Time.at(created_at), Time.at(created_at), item_id)
-          SELECT
-            *
-          FROM
-            `items`
-          WHERE
-            (`seller_id` = ? OR `buyer_id` = ?)
-            AND `status` IN (?, ?, ?, ?, ?)
-            AND (`created_at` < ?  OR (`created_at` <= ? AND `id` < ?))
-          ORDER BY
-            `created_at` DESC,
-            `id` DESC
-          LIMIT #{TRANSACTIONS_PER_PAGE + 1}
-          SQL
-        rescue => e
-          logger.error(e)
-          db.query('ROLLBACK')
-          halt_with_error 500, 'db error'
-        end
-      else
-        # 1st page
-        begin
-          db.xquery(<<-SQL, user['id'], user['id'], ITEM_STATUS_ON_SALE, ITEM_STATUS_TRADING, ITEM_STATUS_SOLD_OUT, ITEM_STATUS_CANCEL, ITEM_STATUS_STOP)
-          SELECT
-            *
-          FROM
-            `items`
-          WHERE
-            (`seller_id` = ? OR `buyer_id` = ?)
-            AND `status` IN (?, ?, ?, ?, ?)
-          ORDER BY
-            `created_at` DESC,
-            `id` DESC
-          LIMIT #{TRANSACTIONS_PER_PAGE + 1}
-          SQL
-        rescue => e
-          logger.error(e)
-          db.query('ROLLBACK')
-          halt_with_error 500, 'db error'
-        end
-      end
+      items = get_items(user, item_id, created_at)
 
       item_details = items.map do |item|
         seller = get_user_simple_by_id(item['seller_id'])
