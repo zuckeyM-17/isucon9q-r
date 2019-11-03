@@ -219,6 +219,30 @@ module Isucari
           end
         end
       end
+
+      def get_transaction_evidences_by_item_ids(item_ids)
+        transaction_evidences = begin
+          db.xquery(<<-SQL, item_ids)
+            SELECT
+              t.`id`, t.`item_id`, t.`status`, s.`reserve_id`
+            FROM
+              `transaction_evidences` as t
+              JOIN shippings AS s
+              ON t.id = s.transaction_evidence_id
+            WHERE
+              t.`item_id` in (#{item_ids.map { |_| '?' }.join(',')})
+            SQL
+        rescue => e
+          logger.error(e)
+          db.query('ROLLBACK')
+          halt_with_error 500, 'db error'
+        end
+        result = {}
+        transaction_evidences.each_with_object(result) do |t, h|
+          h[t['item_id']] = t
+        end
+        result
+      end
     end
 
     # API
@@ -365,6 +389,7 @@ module Isucari
 
       items = get_items(user, item_id, created_at)
       sellers = get_users_simple_by_ids(items.map { |item| item['seller_id'] }.uniq)
+      transaction_evidences = get_transaction_evidences_by_item_ids(items.map { |item| item['id'] }.uniq)
 
       item_details = items.map do |item|
         seller = sellers[item['seller_id']]
@@ -409,16 +434,16 @@ module Isucari
           item_detail['buyer'] = buyer
         end
 
-        transaction_evidence = db.xquery('SELECT * FROM `transaction_evidences` WHERE `item_id` = ?', item['id']).first
+        transaction_evidence = transaction_evidences[item['id']]
         unless transaction_evidence.nil?
-          shipping = db.xquery('SELECT * FROM `shippings` WHERE `transaction_evidence_id` = ?', transaction_evidence['id']).first
-          if shipping.nil?
+          reserve_id = transaction_evidence['reserve_id']
+          if reserve_id.nil?
             db.query('ROLLBACK')
             halt_with_error 404, 'shipping not found'
           end
 
           ssr = begin
-            api_client.shipment_status(get_shipment_service_url, reserve_id: shipping['reserve_id'])
+            api_client.shipment_status(get_shipment_service_url, reserve_id: reserve_id)
           rescue => e
             logger.error(e)
             db.query('ROLLBACK')
