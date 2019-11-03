@@ -109,13 +109,17 @@ module Isucari
         return {} if user_ids.empty?
 
         users = db.xquery("SELECT * FROM `users` WHERE `id` in (#{user_ids.map { |_| '?' }.join(',')})", user_ids)
+        result = {}
         users.map { |user|
           {
               'id' => user['id'],
               'account_name' => user['account_name'],
               'num_sell_items' => user['num_sell_items']
           }
-        }.group_by { |user| user['id'] }
+        }.each_with_object(result) { |user, h|
+          h[user['id']] = user
+        }
+
       end
 
       def get_category_by_id(category_id)
@@ -355,7 +359,7 @@ module Isucari
       db.query('BEGIN')
 
       items = get_items(user, item_id, created_at)
-      sellers = get_users_simple_by_ids(items.map { |item| item['seller_id'] })
+      sellers = get_users_simple_by_ids(items.map { |item| item['seller_id'] }.uniq)
 
       item_details = items.map do |item|
         seller = sellers[item['seller_id']]
