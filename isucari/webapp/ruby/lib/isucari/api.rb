@@ -12,14 +12,14 @@ module Isucari
 
     class << self
       def reset_cache
-        keys = redis_client.keys('shipment_dones:*')
+        keys = redis_client.keys(shipment_key(reserve_id: '*'))
         if keys && keys.size > 0
           redis_client.del(*keys)
         end
       end
 
-      def get_done(reserve_id:)
-        key = done_key_of(reserve_id: reserve_id)
+      def get_resp(reserve_id:)
+        key = shipment_key(reserve_id: reserve_id)
 
         resp = redis_client.get(key)
         if resp
@@ -29,15 +29,20 @@ module Isucari
         end
       end
 
-      def set_done(reserve_id:, val:)
-        key = done_key_of(reserve_id: reserve_id)
+      def set_resp(reserve_id:, val:)
+        key = shipment_key(reserve_id: reserve_id)
         redis_client.set(key, val.to_json)
+      end
+
+      def del_resp(reserve_id:)
+        key = shipment_key(reserve_id: reserve_id)
+        redis_client.del(key)
       end
 
       private
 
-      def done_key_of(reserve_id:)
-        "shipment_dones:#{reserve_id}"
+      def shipment_key(reserve_id:)
+        "shipments:#{reserve_id}"
       end
 
       def redis_client
@@ -87,10 +92,17 @@ module Isucari
         raise Error, "status code #{res.code}; body #{res.body}"
       end
 
-      JSON.parse(res.body)
+      JSON.parse(res.body).tap do |resp|
+        reserve_id = resp['reserve_id']
+        reserve_time = resp['reserve_time']
+        Isucari::API.set_resp(reserve_id: reserve_id, val: { reserve_time: reserve_time, status: 'initial' })
+      end
     end
 
     def shipment_request(shipment_url, param)
+      reserve_id = param[:reserve_id]
+      Isucari::API.del_resp(reserve_id: reserve_id)
+
       uri = URI.parse("#{shipment_url}/request")
 
       req = Net::HTTP::Post.new(uri.path)
@@ -113,7 +125,7 @@ module Isucari
     def shipment_status(shipment_url, param)
       reserve_id = param[:reserve_id]
 
-      v = Isucari::API.get_done(reserve_id: reserve_id)
+      v = Isucari::API.get_resp(reserve_id: reserve_id)
       if v
         @logger.info("cache hit for #{reserve_id}")
         return v
@@ -138,7 +150,7 @@ module Isucari
 
       JSON.parse(res.body).tap do |ret|
         if ret['status'] == 'done'
-          Isucari::API.set_done(reserve_id: reserve_id, val: ret)
+          Isucari::API.set_resp(reserve_id: reserve_id, val: ret)
           @logger.info("cache saved!")
         end
       end
