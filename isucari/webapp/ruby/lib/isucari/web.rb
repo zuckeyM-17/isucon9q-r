@@ -105,6 +105,19 @@ module Isucari
         }
       end
 
+      def get_users_simple_by_ids(user_ids)
+        return {} if user_ids.empty?
+
+        users = db.xquery("SELECT * FROM `users` WHERE `id` in (#{user_ids.map { |_| '?' }.join(',')})", user_ids)
+        users.map { |user|
+          {
+              'id' => user['id'],
+              'account_name' => user['account_name'],
+              'num_sell_items' => user['num_sell_items']
+          }
+        }.group_by { |user| user['id'] }
+      end
+
       def get_category_by_id(category_id)
         category = db.xquery('SELECT * FROM `categories` WHERE `id` = ?', category_id).first
 
@@ -340,10 +353,12 @@ module Isucari
       created_at = params['created_at'].to_i
 
       db.query('BEGIN')
+
       items = get_items(user, item_id, created_at)
+      sellers = get_users_simple_by_ids(items.map { |item| item['seller_id'] })
 
       item_details = items.map do |item|
-        seller = get_user_simple_by_id(item['seller_id'])
+        seller = sellers[item['seller_id']]
         if seller.nil?
           db.query('ROLLBACK')
           halt_with_error 404, 'seller not found'
