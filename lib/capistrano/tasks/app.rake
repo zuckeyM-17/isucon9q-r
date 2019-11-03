@@ -9,7 +9,7 @@ namespace :app do
 
   desc "copy initial.sql"
   task :copy_file do
-    on roles(:app) do |host|
+    on roles(:db) do |host|
       src = "/home/isucon/initial.sql"
       dst = "isucari/webapp/sql/initial.sql"
       execute :rm, '-rf', dst
@@ -20,6 +20,7 @@ namespace :app do
   desc "create a symlink to upload "
   task :link_upload do
     on roles(:app) do |host|
+      execute :mkdir, :"-p", "/home/isucon/upload"
       execute :ln, :"-s", "/home/isucon/upload", "isucari/webapp/public/upload"
     end
   end
