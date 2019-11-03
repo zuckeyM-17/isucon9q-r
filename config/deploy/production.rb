@@ -1,1 +1,1 @@
-server "52.68.25.229", user: "isucon", roles: %w[lb db app mgmt]
+server "13.113.192.44", user: "isucon", roles: %w[lb db app mgmt]
