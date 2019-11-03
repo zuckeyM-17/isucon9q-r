@@ -160,6 +160,9 @@ module Isucari
     # postInitialize
     post '/initialize' do
       logger.info("start /initialize")
+
+      Isucari::API.reset_cache
+
       unless system "#{settings.root}/../sql/init.sh"
         halt_with_error 500, 'exec init.sh error'
       end
