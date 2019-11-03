@@ -289,9 +289,10 @@ module Isucari
         # 1st page
         db.xquery("SELECT * FROM `items` WHERE `status` IN (?, ?) ORDER BY `created_at` DESC, `id` DESC LIMIT #{ITEMS_PER_PAGE + 1}", ITEM_STATUS_ON_SALE, ITEM_STATUS_SOLD_OUT)
       end
+      sellers = get_users_simple_by_ids(items.map { |item| item['seller_id'] }.uniq)
 
       item_simples = items.map do |item|
-        seller = get_user_simple_by_id(item['seller_id'])
+        seller = sellers[item['seller_id']]
         halt_with_error 404, 'seller not found' if seller.nil?
 
         category = get_category_by_id(item['category_id'])
@@ -343,9 +344,10 @@ module Isucari
       else
         db.xquery("SELECT * FROM `items` WHERE `status` IN (?,?) AND category_id IN (?) ORDER BY `created_at` DESC, `id` DESC LIMIT #{ITEMS_PER_PAGE + 1}", ITEM_STATUS_ON_SALE, ITEM_STATUS_SOLD_OUT, category_ids)
       end
+      sellers = get_users_simple_by_ids(items.map { |item| item['seller_id'] }.uniq)
 
       item_simples = items.map do |item|
-        seller = get_user_simple_by_id(item['seller_id'])
+        seller = sellers[item['seller_id']]
         halt_with_error 404, 'seller not found' if seller.nil?
 
         category = get_category_by_id(item['category_id'])
@@ -391,6 +393,7 @@ module Isucari
 
       items = get_items(user, item_id, created_at)
       sellers = get_users_simple_by_ids(items.map { |item| item['seller_id'] }.uniq)
+      buyers = get_users_simple_by_ids(items.map { |item| item['buyer_id'] }.uniq)
       transaction_evidences = get_transaction_evidences_by_item_ids(items.map { |item| item['id'] }.uniq)
 
       item_details = items.map do |item|
@@ -426,7 +429,7 @@ module Isucari
         }
 
         if item['buyer_id'] != 0
-          buyer = get_user_simple_by_id(item['buyer_id'])
+          buyer = buyers[item['buyer_id']]
           if buyer.nil?
             db.query('ROLLBACK')
             halt_with_error 404, 'buyer not found'
@@ -495,9 +498,10 @@ module Isucari
         # 1st page
         db.xquery("SELECT * FROM `items` WHERE `seller_id` = ? AND `status` IN (?, ?, ?) ORDER BY `created_at` DESC, `id` DESC LIMIT #{ITEMS_PER_PAGE + 1}", user_simple['id'], ITEM_STATUS_ON_SALE, ITEM_STATUS_TRADING, ITEM_STATUS_SOLD_OUT)
       end
+      sellers = get_users_simple_by_ids(items.map { |item| item['seller_id'] }.uniq)
 
       item_simples = items.map do |item|
-        seller = get_user_simple_by_id(item['seller_id'])
+        seller = sellers[item['seller_id']]
         halt_with_error 404, 'seller not found' if seller.nil?
 
         category = get_category_by_id(item['category_id'])
