@@ -2,6 +2,8 @@ require 'json'
 require 'uri'
 require 'net/http'
 
+require 'redis'
+
 module Isucari
   class API
     class Error < StandardError; end
@@ -10,11 +12,36 @@ module Isucari
 
     class << self
       def reset_cache
-        @dones = {}
+        keys = redis_client.keys('shipment_dones:*')
+        if keys && keys.size > 0
+          redis_client.del(*keys)
+        end
       end
 
-      def dones
-        @dones ||= {}
+      def get_done(reserve_id:)
+        key = done_key_of(reserve_id: reserve_id)
+
+        resp = redis_client.get(key)
+        if resp
+          JSON.parse(resp)
+        else
+          nil
+        end
+      end
+
+      def set_done(reserve_id:, val:)
+        key = done_key_of(reserve_id: reserve_id)
+        redis_client.set(key, val.to_json)
+      end
+
+      private
+
+      def done_key_of(reserve_id:)
+        "shipment_dones:#{reserve_id}"
+      end
+
+      def redis_client
+        Thread.current[:redis] ||= ::Redis.new(host: ENV['REDIS_HOST'] || '127.0.0.1')
       end
     end
 
@@ -86,9 +113,10 @@ module Isucari
     def shipment_status(shipment_url, param)
       reserve_id = param[:reserve_id]
 
-      if Isucari::API.dones.key?(reserve_id)
+      v = Isucari::API.get_done(reserve_id: reserve_id)
+      if v
         @logger.info("cache hit for #{reserve_id}")
-        return Isucari::API.dones[reserve_id]
+        return v
       end
 
 
@@ -110,7 +138,7 @@ module Isucari
 
       JSON.parse(res.body).tap do |ret|
         if ret['status'] == 'done'
-          Isucari::API.dones[reserve_id] = ret
+          Isucari::API.set_done(reserve_id: reserve_id, val: ret)
           @logger.info("cache saved!")
         end
       end

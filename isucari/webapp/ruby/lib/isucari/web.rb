@@ -42,18 +42,10 @@ module Isucari
 
     BCRYPT_COST = 10
 
-    LOG_PATH = File.expand_path("../../log/#{Time.now.to_i}.log", __dir__)
-    STACKPROF_PATH = "tmp/stackprof-#{Time.now.to_i}/"
+    human_readable_timestamp = Time.now.strftime('%Y-%m-%d_%H%M%S')
 
-    class << self
-      def configs
-        @configs ||= {}
-      end
-
-      def reset
-        @configs = {}
-      end
-    end
+    LOG_PATH = File.expand_path("../../log/#{human_readable_timestamp}.log", __dir__)
+    STACKPROF_PATH = "tmp/stackprof-#{human_readable_timestamp}/"
 
     configure :development do
       require 'sinatra/reloader'
@@ -153,12 +145,20 @@ module Isucari
         }
       end
 
+      def get_config_by_name(name)
+        config = db.xquery('SELECT * FROM `configs` WHERE `name` = ?', name).first
+
+        return if config.nil?
+
+        config['val']
+      end
+
       def get_payment_service_url
-        Isucari::Web.configs['payment_service_url'] || DEFAULT_PAYMENT_SERVICE_URL
+        get_config_by_name('payment_service_url') || DEFAULT_PAYMENT_SERVICE_URL
       end
 
       def get_shipment_service_url
-        Isucari::Web.configs['shipment_service_url'] || DEFAULT_SHIPMENT_SERVICE_URL
+        get_config_by_name('shipment_service_url') || DEFAULT_SHIPMENT_SERVICE_URL
       end
 
       def get_image_url(image_name)
@@ -219,6 +219,30 @@ module Isucari
           end
         end
       end
+
+      def get_transaction_evidences_by_item_ids(item_ids)
+        transaction_evidences = begin
+          db.xquery(<<-SQL, item_ids)
+            SELECT
+              t.`id`, t.`item_id`, t.`status`, s.`reserve_id`
+            FROM
+              `transaction_evidences` as t
+              JOIN shippings AS s
+              ON t.id = s.transaction_evidence_id
+            WHERE
+              t.`item_id` in (#{item_ids.map { |_| '?' }.join(',')})
+            SQL
+        rescue => e
+          logger.error(e)
+          db.query('ROLLBACK')
+          halt_with_error 500, 'db error'
+        end
+        result = {}
+        transaction_evidences.each_with_object(result) do |t, h|
+          h[t['item_id']] = t
+        end
+        result
+      end
     end
 
     # API
@@ -228,14 +252,15 @@ module Isucari
       logger.info("start /initialize")
 
       Isucari::API.reset_cache
-      Isucari::Web.reset
 
       unless system "#{settings.root}/../sql/init.sh"
         halt_with_error 500, 'exec init.sh error'
       end
 
       ['payment_service_url', 'shipment_service_url'].each do |name|
-        Isucari::Web.configs[name] = body_params[name]
+        value = body_params[name]
+
+        db.xquery('INSERT INTO `configs` (name, val) VALUES (?, ?) ON DUPLICATE KEY UPDATE `val` = VALUES(`val`)', name, value)
       end
 
       content_type :json
@@ -364,6 +389,7 @@ module Isucari
 
       items = get_items(user, item_id, created_at)
       sellers = get_users_simple_by_ids(items.map { |item| item['seller_id'] }.uniq)
+      transaction_evidences = get_transaction_evidences_by_item_ids(items.map { |item| item['id'] }.uniq)
 
       item_details = items.map do |item|
         seller = sellers[item['seller_id']]
@@ -408,16 +434,16 @@ module Isucari
           item_detail['buyer'] = buyer
         end
 
-        transaction_evidence = db.xquery('SELECT * FROM `transaction_evidences` WHERE `item_id` = ?', item['id']).first
+        transaction_evidence = transaction_evidences[item['id']]
         unless transaction_evidence.nil?
-          shipping = db.xquery('SELECT * FROM `shippings` WHERE `transaction_evidence_id` = ?', transaction_evidence['id']).first
-          if shipping.nil?
+          reserve_id = transaction_evidence['reserve_id']
+          if reserve_id.nil?
             db.query('ROLLBACK')
             halt_with_error 404, 'shipping not found'
           end
 
           ssr = begin
-            api_client.shipment_status(get_shipment_service_url, reserve_id: shipping['reserve_id'])
+            api_client.shipment_status(get_shipment_service_url, reserve_id: reserve_id)
           rescue => e
             logger.error(e)
             db.query('ROLLBACK')
