@@ -366,7 +366,7 @@ module Isucari
           end
 
           ssr = begin
-            api_client.shipment_status(get_shipment_service_url, 'reserve_id' => shipping['reserve_id'])
+            api_client.shipment_status(get_shipment_service_url, reserve_id: shipping['reserve_id'])
           rescue => e
             logger.error(e)
             db.query('ROLLBACK')
