@@ -263,6 +263,12 @@ module Isucari
         db.xquery("SELECT * FROM `items` WHERE `status` IN (?, ?) ORDER BY `created_at` DESC, `id` DESC LIMIT #{ITEMS_PER_PAGE + 1}", ITEM_STATUS_ON_SALE, ITEM_STATUS_SOLD_OUT)
       end
 
+      has_next = false
+      if items.size > ITEMS_PER_PAGE
+        has_next = true
+        items = items.to_a.take(ITEMS_PER_PAGE)
+      end
+
       item_simples = items.map do |item|
         seller = get_user_simple_by_id(item['seller_id'])
         halt_with_error 404, 'seller not found' if seller.nil?
@@ -282,12 +288,6 @@ module Isucari
           'category' => category,
           'created_at' => item['created_at'].to_i
         }
-      end
-
-      has_next = false
-      if item_simples.length > ITEMS_PER_PAGE
-        has_next = true
-        item_simples = item_simples[0, ITEMS_PER_PAGE]
       end
 
       response = {
@@ -317,6 +317,12 @@ module Isucari
         db.xquery("SELECT * FROM `items` WHERE `status` IN (?,?) AND category_id IN (?) ORDER BY `created_at` DESC, `id` DESC LIMIT #{ITEMS_PER_PAGE + 1}", ITEM_STATUS_ON_SALE, ITEM_STATUS_SOLD_OUT, category_ids)
       end
 
+      has_next = false
+      if items.size > ITEMS_PER_PAGE
+        has_next = true
+        items = items.to_a.take(ITEMS_PER_PAGE)
+      end
+
       item_simples = items.map do |item|
         seller = get_user_simple_by_id(item['seller_id'])
         halt_with_error 404, 'seller not found' if seller.nil?
@@ -336,12 +342,6 @@ module Isucari
           'category' => category,
           'created_at' => item['created_at'].to_i
         }
-      end
-
-      has_next = false
-      if item_simples.length > ITEMS_PER_PAGE
-        has_next = true
-        item_simples = item_simples[0, ITEMS_PER_PAGE]
       end
 
       response = {
@@ -364,6 +364,12 @@ module Isucari
 
       items = get_items(user, item_id, created_at)
       sellers = get_users_simple_by_ids(items.map { |item| item['seller_id'] }.uniq)
+
+      has_next = false
+      if items.size > TRANSACTIONS_PER_PAGE
+        has_next = true
+        items = items.to_a.take(TRANSACTIONS_PER_PAGE)
+      end
 
       item_details = items.map do |item|
         seller = sellers[item['seller_id']]
@@ -434,12 +440,6 @@ module Isucari
 
       db.query('COMMIT')
 
-      has_next = false
-      if item_details.length > TRANSACTIONS_PER_PAGE
-        has_next = true
-        item_details = item_details[0, TRANSACTIONS_PER_PAGE]
-      end
-
       response = {
         'items' => item_details,
         'has_next' => has_next
@@ -468,6 +468,12 @@ module Isucari
         db.xquery("SELECT * FROM `items` WHERE `seller_id` = ? AND `status` IN (?, ?, ?) ORDER BY `created_at` DESC, `id` DESC LIMIT #{ITEMS_PER_PAGE + 1}", user_simple['id'], ITEM_STATUS_ON_SALE, ITEM_STATUS_TRADING, ITEM_STATUS_SOLD_OUT)
       end
 
+      has_next = false
+      if items.size > ITEMS_PER_PAGE
+        has_next = true
+        items = items.to_a.take(ITEMS_PER_PAGE)
+      end
+
       item_simples = items.map do |item|
         seller = get_user_simple_by_id(item['seller_id'])
         halt_with_error 404, 'seller not found' if seller.nil?
@@ -487,12 +493,6 @@ module Isucari
           'category' => category,
           'created_at' => item['created_at'].to_i
         }
-      end
-
-      has_next = false
-      if item_simples.length > ITEMS_PER_PAGE
-        has_next = true
-        item_simples = item_simples[0, ITEMS_PER_PAGE]
       end
 
       response = {
