@@ -8,6 +8,16 @@ module Isucari
 
     ISUCARI_API_TOKEN = 'Bearer 75ugk2m37a750fwir5xr-22l6h4wmue1bwrubzwd0'
 
+    class << self
+      def reset_cache
+        @dones = {}
+      end
+
+      def dones
+        @dones ||= {}
+      end
+    end
+
     def initialize(logger:, debug:)
       @user_agent = 'isucon9-qualify-webapp'
       @logger = logger
@@ -74,6 +84,14 @@ module Isucari
     end
 
     def shipment_status(shipment_url, param)
+      reserve_id = param[:reserve_id]
+
+      if Isucari::API.dones.key?(reserve_id)
+        @logger.info("cache hit for #{reserve_id}")
+        return Isucari::API.dones[reserve_id]
+      end
+
+
       uri = URI.parse("#{shipment_url}/status")
 
       req = Net::HTTP::Post.new(uri.path)
@@ -90,7 +108,12 @@ module Isucari
         raise Error, "status code #{res.code}; body #{res.body}"
       end
 
-      JSON.parse(res.body)
+      JSON.parse(res.body).tap do |ret|
+        if ret['status'] == 'done'
+          Isucari::API.dones[reserve_id] = ret
+          @logger.info("cache saved!")
+        end
+      end
     end
 
     private
