@@ -105,6 +105,23 @@ module Isucari
         }
       end
 
+      def get_users_simple_by_ids(user_ids)
+        return {} if user_ids.empty?
+
+        users = db.xquery("SELECT * FROM `users` WHERE `id` in (#{user_ids.map { |_| '?' }.join(',')})", user_ids)
+        result = {}
+        users.map { |user|
+          {
+              'id' => user['id'],
+              'account_name' => user['account_name'],
+              'num_sell_items' => user['num_sell_items']
+          }
+        }.each_with_object(result) { |user, h|
+          h[user['id']] = user
+        }
+
+      end
+
       def get_category_by_id(category_id)
         category = db.xquery('SELECT * FROM `categories` WHERE `id` = ?', category_id).first
 
@@ -152,6 +169,53 @@ module Isucari
 
       def halt_with_error(status = 500, error = 'unknown')
         halt status, { 'error' => error }.to_json
+      end
+
+      def get_items(user, item_id = 0, created_at = 0)
+        if item_id > 0 && created_at > 0
+          # paging
+          begin
+            db.xquery(<<-SQL, user['id'], user['id'], ITEM_STATUS_ON_SALE, ITEM_STATUS_TRADING, ITEM_STATUS_SOLD_OUT, ITEM_STATUS_CANCEL, ITEM_STATUS_STOP, Time.at(created_at), Time.at(created_at), item_id)
+          SELECT
+            *
+          FROM
+            `items`
+          WHERE
+            (`seller_id` = ? OR `buyer_id` = ?)
+            AND `status` IN (?, ?, ?, ?, ?)
+            AND (`created_at` < ?  OR (`created_at` <= ? AND `id` < ?))
+          ORDER BY
+            `created_at` DESC,
+            `id` DESC
+          LIMIT #{TRANSACTIONS_PER_PAGE + 1}
+            SQL
+          rescue => e
+            logger.error(e)
+            db.query('ROLLBACK')
+            halt_with_error 500, 'db error'
+          end
+        else
+          # 1st page
+          begin
+            db.xquery(<<-SQL, user['id'], user['id'], ITEM_STATUS_ON_SALE, ITEM_STATUS_TRADING, ITEM_STATUS_SOLD_OUT, ITEM_STATUS_CANCEL, ITEM_STATUS_STOP)
+          SELECT
+            *
+          FROM
+            `items`
+          WHERE
+            (`seller_id` = ? OR `buyer_id` = ?)
+            AND `status` IN (?, ?, ?, ?, ?)
+          ORDER BY
+            `created_at` DESC,
+            `id` DESC
+          LIMIT #{TRANSACTIONS_PER_PAGE + 1}
+            SQL
+          rescue => e
+            logger.error(e)
+            db.query('ROLLBACK')
+            halt_with_error 500, 'db error'
+          end
+        end
       end
     end
 
@@ -289,33 +353,16 @@ module Isucari
     # getTransactions
     get '/users/transactions.json' do
       user = get_user
-
       item_id = params['item_id'].to_i
       created_at = params['created_at'].to_i
 
       db.query('BEGIN')
-      items = if item_id > 0 && created_at > 0
-        # paging
-        begin
-          db.xquery("SELECT * FROM `items` WHERE (`seller_id` = ? OR `buyer_id` = ?) AND `status` IN (?, ?, ?, ?, ?) AND (`created_at` < ?  OR (`created_at` <= ? AND `id` < ?)) ORDER BY `created_at` DESC, `id` DESC LIMIT #{TRANSACTIONS_PER_PAGE + 1}", user['id'], user['id'], ITEM_STATUS_ON_SALE, ITEM_STATUS_TRADING, ITEM_STATUS_SOLD_OUT, ITEM_STATUS_CANCEL, ITEM_STATUS_STOP, Time.at(created_at), Time.at(created_at), item_id)
-        rescue => e
-          logger.error(e)
-          db.query('ROLLBACK')
-          halt_with_error 500, 'db error'
-        end
-      else
-        # 1st page
-        begin
-          db.xquery("SELECT * FROM `items` WHERE (`seller_id` = ? OR `buyer_id` = ?) AND `status` IN (?, ?, ?, ?, ?) ORDER BY `created_at` DESC, `id` DESC LIMIT #{TRANSACTIONS_PER_PAGE + 1}", user['id'], user['id'], ITEM_STATUS_ON_SALE, ITEM_STATUS_TRADING, ITEM_STATUS_SOLD_OUT, ITEM_STATUS_CANCEL, ITEM_STATUS_STOP)
-        rescue => e
-          logger.error(e)
-          db.query('ROLLBACK')
-          halt_with_error 500, 'db error'
-        end
-      end
+
+      items = get_items(user, item_id, created_at)
+      sellers = get_users_simple_by_ids(items.map { |item| item['seller_id'] }.uniq)
 
       item_details = items.map do |item|
-        seller = get_user_simple_by_id(item['seller_id'])
+        seller = sellers[item['seller_id']]
         if seller.nil?
           db.query('ROLLBACK')
           halt_with_error 404, 'seller not found'
